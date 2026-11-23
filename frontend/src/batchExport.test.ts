@@ -1,16 +1,73 @@
 import { describe, expect, it } from 'vitest'
-import type { BatchItemResult } from './batchVerifier'
 import {
   EXPORT_PRIVACY_PROFILES,
   OWNER_ONLY_EXPORT_FIELDS,
   PUBLIC_EXPORT_FIELDS,
   assertValidExportPrivacyProfile,
   exportBatchCSV,
+  exportBatchCheckpoint,
   exportBatchJSON,
   exportReceiptCollection,
+  parseBatchCheckpoint,
   sanitizeBatchResults,
   type ExportPrivacyProfile,
 } from './batchExport'
+import { summarizeBatchCompleteness } from './batchVerifier'
+
+function makeItem(overrides: Partial<BatchItemResult> & { id: string; fileName: string }): BatchItemResult {
+  const { id, fileName, ...rest } = overrides
+  return {
+    id,
+    file: new File(['synthetic media'], fileName, { type: 'video/mp4' }),
+    fileName,
+    fileSizeBytes: 1024,
+    status: 'confirmed',
+    videoHash: '1111222233334444555566667777888811112222333344445555666677778888',
+    metadataHash: 'aaaa222233334444555566667777888811112222333344445555666677778888',
+    sourceHash: '1111222233334444555566667777888811112222333344445555666677778888',
+    tier: 'silent',
+    chainStatus: 'Active',
+    message: 'Confirmed evidence',
+    events: [],
+    chainProof: null,
+    duplicateOf: null,
+    manifest: null,
+    durationMs: 120,
+    failureReason: null,
+    ...rest,
+  }
+}
+
+function makeReportItem(overrides: Partial<CleanBatchReportItem> = {}): CleanBatchReportItem {
+  return {
+    fileName: 'evidence.mp4',
+    fileSizeBytes: 1024,
+    status: 'confirmed',
+    videoHash: '1111222233334444555566667777888811112222333344445555666677778888',
+    metadataHash: 'aaaa222233334444555566667777888811112222333344445555666677778888',
+    sourceHash: '1111222233334444555566667777888811112222333344445555666677778888',
+    tier: 'silent',
+    chainStatus: 'Active',
+    message: 'Confirmed evidence',
+    duplicateOf: null,
+    failureReason: null,
+    durationMs: 120,
+    ...overrides,
+  }
+}
+
+function makeManifest(
+  results: CleanBatchReportItem[],
+  exportedAt = '2026-11-19T00:00:00.000Z',
+): BatchResultManifest {
+  return {
+    protocol: BATCH_REPORT_PROTOCOL,
+    version: BATCH_REPORT_VERSION,
+    exportedAt,
+    totalCount: results.length,
+    results,
+  }
+}
 
 describe('batchExport', () => {
   const mockItems: BatchItemResult[] = [
@@ -59,7 +116,9 @@ describe('batchExport', () => {
   it('sanitizeBatchResults strips raw File handles and media buffers', () => {
     const sanitized = sanitizeBatchResults(mockItems)
     expect(sanitized).toHaveLength(2)
+    expect(sanitized[0].sourceItemId).toBe('item-1')
     expect(sanitized[0].fileName).toBe('evidence1.mp4')
+    expect(sanitized[0].archiveFileName).toBe('evidence1.mp4')
     expect((sanitized[0] as Record<string, unknown>).file).toBeUndefined()
   })
 
