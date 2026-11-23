@@ -11,6 +11,7 @@ import {
   sanitizeBatchResults,
   type BatchArchiveManifest,
 } from './batchExport'
+import { summarizeBatchCompleteness } from './batchVerifier'
 
 function makeItem(overrides: Partial<BatchItemResult> & { id: string; fileName: string }): BatchItemResult {
   const { id, fileName, ...rest } = overrides
